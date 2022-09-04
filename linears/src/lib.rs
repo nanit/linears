@@ -2,12 +2,13 @@
 #![allow(non_camel_case_types)]
 #![allow(non_snake_case)]
 
-pub mod bindings;
+mod bindings;
+pub mod owned;
 
 use std::ffi::CString;
 use std::io::Write;
 
-use crate::bindings::{feature_node, free_and_destroy_model, load_model, save_model};
+use crate::bindings::{free_and_destroy_model, load_model, save_model};
 use eyre::{eyre, Report, WrapErr};
 
 #[derive(Debug)]
@@ -81,8 +82,23 @@ impl Model {
         self.num_features
     }
 
-    pub fn predict(&self, features: &[feature_node]) -> f64 {
-        unsafe { bindings::predict(self.model, features.as_ptr()) }
+    pub fn predict(&self, features: &[f64]) -> f64 {
+        let mut fns: Vec<bindings::feature_node> = features.iter().enumerate().map(|(idx, val)| bindings::feature_node{index: (idx + 1) as _, value: *val}).collect();
+
+        if self.bias >= 0.0 {
+            fns.push(bindings::feature_node {
+                index: (features.len() + 1) as _,
+                value: self.bias,
+            });
+        }
+
+        fns.push(bindings::feature_node {
+            index: -1,
+            value: 0f64,
+        });
+
+
+        unsafe { bindings::predict(self.model, fns.as_ptr()) }
     }
 }
 
@@ -91,37 +107,5 @@ impl Drop for Model {
         if !self.owned {
             unsafe { free_and_destroy_model(&mut self.model) }
         }
-    }
-}
-
-pub struct OwnedModel {
-    owned_model: bindings::model,
-    model: Option<Model>,
-    labels: Vec<i32>,
-    w: Vec<f64>,
-}
-
-impl OwnedModel {
-    pub fn new(owned_model: bindings::model, labels: Vec<i32>, w: Vec<f64>) -> Self {
-        let mut model = OwnedModel {
-            owned_model,
-            labels,
-            w,
-            model: None,
-        };
-
-        model.owned_model.w = model.w.as_mut_ptr();
-        model.owned_model.label = model.labels.as_mut_ptr();
-        model.model = unsafe {
-            Some(Model::new_owned(
-                &mut model.owned_model as *mut bindings::model,
-            ))
-        };
-
-        model
-    }
-
-    pub fn model(&self) -> &Model {
-        self.model.as_ref().unwrap()
     }
 }

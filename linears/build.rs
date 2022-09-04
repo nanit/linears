@@ -1,17 +1,34 @@
 
+const LIBLINEAR_REPO: &str = "https://github.com/cjlin1/liblinear.git";
+const LIBLINEAR_TAG: &str = "v245";
 
 fn main() {
-    cc::Build::new()
-        .cpp(true)
-        .flag("-O2")
-        .file("liblinear/linear.cpp")
-        .file("liblinear/newton.cpp")
-        .file("liblinear/blas/daxpy.c")
-        .file("liblinear/blas/ddot.c")
-        .file("liblinear/blas/dnrm2.c")
-        .file("liblinear/blas/dscal.c")
-        .include("liblinear")
-        .include("liblinear/blas")
+
+    let tempdir = tempfile::tempdir().unwrap();
+
+    let repo = git2::Repository::clone(LIBLINEAR_REPO, tempdir.path()).unwrap();
+    let (obj, reference) = repo.revparse_ext(LIBLINEAR_TAG).unwrap();
+
+    repo.checkout_tree(&obj, None).unwrap();
+    match reference {
+        // gref is an actual reference like branches or tags
+        Some(gref) => repo.set_head(gref.name().unwrap()),
+        // this is a commit, not a reference
+        None => repo.set_head_detached(obj.id()),
+    }.unwrap();
+
+    let p = tempdir.path();
+
+    let mut b = cc::Build::new();
+        b.cpp(true)
+        .flag("-O2");
+
+    for f in &["linear.cpp", "newton.cpp", "blas/daxpy.c", "blas/ddot.c", "blas/dnrm2.c", "blas/dscal.c"] {
+        b.file(p.join(f));
+    }
+        
+        b.include(&p)
+        .include(p.join("blas"))
         .compile("liblinear");
 
     // Tell cargo to invalidate the built crate whenever the wrapper changes

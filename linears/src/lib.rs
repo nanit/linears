@@ -6,8 +6,6 @@ pub mod bindings;
 
 use std::ffi::CString;
 use std::io::Write;
-use std::ptr::{addr_of_mut, null, null_mut};
-use std::sync::{Arc, Mutex};
 
 use crate::bindings::{feature_node, free_and_destroy_model, load_model, save_model};
 use eyre::{eyre, Report, WrapErr};
@@ -125,15 +123,5 @@ impl OwnedModel {
 
     pub fn model(&self) -> &Model {
         self.model.as_ref().unwrap()
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use crate::bindings::LIBLINEAR_VERSION;
-
-    #[test]
-    fn version() {
-        assert_eq!(LIBLINEAR_VERSION, 245)
     }
 }

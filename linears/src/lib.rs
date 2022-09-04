@@ -40,7 +40,7 @@ impl Model {
         Model::load_from_file(temp.path().to_str().unwrap())
     }
 
-    pub unsafe fn new(model: *mut bindings::model) -> Result<Self, Report> {
+    unsafe fn new(model: *mut bindings::model) -> Result<Self, Report> {
         if model.is_null() {
             return Err(eyre!("null model pointer"));
         }
